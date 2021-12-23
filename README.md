@@ -8,7 +8,7 @@ Features:
 - supports multiple languages
 
 ## Running the script
-Download dart from here:
+Download & install dart from here:
 https://dart.dev/get-dart
 
 clone the repo:
@@ -18,4 +18,4 @@ install required packages
 `cd conference && dart pub get`
 
 adjust variables in main to get the languages / range of year you want then run the script
-`dart bin/conference.dart`
+`dart bin/main.dart`
