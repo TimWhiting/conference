@@ -1,0 +1,16 @@
+name: conference
+description: A simple command-line application.
+version: 1.0.0
+publish_to: none
+
+environment:
+  sdk: '>=2.14.4 <3.0.0'
+
+dev_dependencies:
+  lints: ^1.0.0
+
+dependencies: 
+  http: ^0.13.4
+  puppeteer: ^2.5.0
+  xml: ^5.3.1
+  dartx: any
