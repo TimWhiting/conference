@@ -9,10 +9,10 @@ void main() async {
   // Download the Chromium binaries, launch it and connect to the "DevTools"
   var browser = await puppeteer.launch(headless: true);
 
-  final langs = ['eng', 'pol', 'spa'];
+  final langs = ['eng'];
   // Iterate through the conferences and launch async tabs handling each then await the completion
   await Future.wait([
-    for (final year in 2020.rangeTo(2021))
+    for (final year in 2010.rangeTo(2019))
       for (final month in ['10', '04'])
         handleConference(browser, langs, month, year)
   ]);
@@ -80,20 +80,29 @@ void downloadAndSave(List params) async {
 
     final talk = Uri.parse(params[1] as String);
     // Need index because some speakers speak more than once
-    final talkIndex = talk.pathSegments.last.substring(0, 2);
+    var talkIndex = talk.pathSegments.last.substring(0, 2);
+    // Some urls use talk name instead of speaker name. Talk name is unique
+    // /study/general-conference/2017/10/turn-on-your-light
+    talkIndex = talkIndex.isInt ? talkIndex : '';
 
     final year = url.pathSegments.last.substring(0, 4);
     final month = url.pathSegments.last.substring(5, 7);
     final title = url.pathSegments.last.substring(13);
 
+    /// Unfortunately not all conferences were in April and October (e.g. 2015)
+    Directory('$lang/$year/$month').createSync(recursive: true);
+
     if (!title.contains('sustaining-of-general') &&
         !title.contains('sustaining-of-church') &&
         !title.contains('auditing-department')) {
       final dir = Directory('$lang/$year/$month');
-      final download = await http.get(url);
-      print('Downloading ${dir.path}/$talkIndex$title from $url');
-
-      File('${dir.path}/$talkIndex$title').writeAsBytesSync(download.bodyBytes);
+      final file = File('${dir.path}/$talkIndex$title');
+      // Don't redownload if the file already exists
+      if (!file.existsSync()) {
+        final download = await http.get(url);
+        print('Downloading ${dir.path}/$talkIndex$title from $url');
+        file.writeAsBytesSync(download.bodyBytes);
+      }
     }
   }
 }
