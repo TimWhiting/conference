@@ -66,6 +66,7 @@ Future<void> handleConference(
     // Spawn a thread to download the talk
     Isolate.spawn(downloadAndSave, [link, talk, langs]);
   }
+  await myPage.close();
 }
 
 void downloadAndSave(List params) async {
