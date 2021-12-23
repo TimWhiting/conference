@@ -12,7 +12,7 @@ void main() async {
   final langs = ['eng'];
   // Iterate through the conferences and launch async tabs handling each then await the completion
   await Future.wait([
-    for (final year in 2010.rangeTo(2019))
+    for (final year in 2020.rangeTo(2021))
       for (final month in ['10', '04'])
         handleConference(browser, langs, month, year)
   ]);
