@@ -1,9 +1,10 @@
 import 'dart:io';
 import 'dart:isolate';
 
-import 'package:puppeteer/puppeteer.dart';
 import 'package:dartx/dartx.dart';
 import 'package:http/http.dart' as http;
+import 'package:http/http.dart';
+import 'package:puppeteer/puppeteer.dart';
 
 void main() async {
   // Download the Chromium binaries, launch it and connect to the "DevTools"
@@ -12,8 +13,11 @@ void main() async {
   final langs = ['eng'];
   // Iterate through the conferences and launch async tabs handling each then await the completion
   await Future.wait([
-    for (final year in 2020.rangeTo(2021))
-      for (final month in ['10', '04'])
+    // for (final year in 2020.rangeTo(2024))
+    //   for (final month in ['10', '04'])
+    //     handleConferenceTalks(browser, langs, month, year),
+    for (final year in 2010.rangeTo(2024))
+      for (final month in ['october', 'april'])
         handleConference(browser, langs, month, year)
   ]);
 
@@ -23,6 +27,87 @@ void main() async {
 }
 
 Future<void> handleConference(
+  Browser browser,
+  List<String> langs,
+  String month,
+  int year,
+) async {
+  // Open a new tab
+  var myPage = await browser.newPage();
+
+  final songs = <String, String>{};
+
+  // Go to the overall conference page
+  await myPage.goto(
+    'https://www.churchofjesuschrist.org/media/music/collections/music-from-$month-$year-general-conference?lang=eng',
+    wait: Until.networkAlmostIdle, // Until.networkIdle,
+  ); // https://www.churchofjesuschrist.org/media/music/songs/2024-10-press-forward-saints?...lang=eng
+  // get all of the talks
+  final allSongs =
+      await myPage.$$('div.SongCard__StyledFlexDiv-sc-1a6cjzr-10.ArkGp > a');
+  for (final talk in allSongs) {
+    final href = await myPage.evaluate('element => element.href', args: [talk]);
+    // print(href);
+    songs[href] = '';
+  }
+  for (final song in songs.keys) {
+    try {
+      await myPage.goto(song, wait: Until.networkAlmostIdle);
+      final audio = await myPage.$$("audio");
+      final src =
+          await myPage.evaluate('element => element.src', args: [audio[0]]);
+      // print('song: $src');
+      songs[song] = src;
+    } catch (e) {
+      print(e);
+    }
+  }
+  print(
+      "Songs: ${songs.mapEntries((e) => "${e.key.split('/').last}: ${e.value}").join("\n")}");
+  await Isolate.spawn(downloadSongs, [songs, langs[0], month, year]);
+  await Future.delayed(Duration(seconds: 20));
+  await myPage.close();
+}
+
+Future<void> downloadSongs(List args) async {
+  final songs = args[0] as Map<String, String>;
+  final lang = args[1] as String;
+  final month = args[2] as String;
+  final year = args[3] as int;
+  final dir = Directory('$lang/$year/$month');
+  if (!dir.existsSync()) {
+    dir.createSync(recursive: true);
+  }
+  final client = http.Client();
+  Future.wait([
+    for (final entry in songs.entries)
+      if (entry.value != "") downloadSong(client, dir, entry.key, entry.value)
+  ]);
+}
+
+Future<void> downloadSong(
+    Client client, Directory dir, String song, String urlString) async {
+  try {
+    print("Going to download $song");
+    final url = Uri.parse(urlString);
+    final title = urlString.split('/').last;
+    final file = File('${dir.path}/$title');
+    // Don't redownload if the file already exists
+    if (!file.existsSync()) {
+      final download = await client.get(url);
+      print('Downloading ${dir.path}/$title from $url');
+      await file.writeAsBytes(download.bodyBytes, flush: true);
+    } else {
+      print('Skipping $title: already downloaded');
+    }
+  } catch (e) {
+    print("ERRORRRRRRR!!!!!");
+    print(e);
+    await Future.delayed(Duration(seconds: 1));
+  }
+}
+
+Future<void> handleConferenceTalks(
   Browser browser,
   List<String> langs,
   String month,
