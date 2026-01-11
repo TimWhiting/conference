@@ -13,12 +13,12 @@ void main() async {
   final langs = ['eng'];
   // Iterate through the conferences and launch async tabs handling each then await the completion
   await Future.wait([
+    // for (final year in 2019.rangeTo(2024))
+    //   for (final month in ['10', '04'])
+    //     handleConferenceTalks(browser, langs, month, year),
     for (final year in 2019.rangeTo(2024))
-      for (final month in ['10', '04'])
-        handleConferenceTalks(browser, langs, month, year),
-    // for (final year in 2010.rangeTo(2024))
-    //   for (final month in ['october', 'april'])
-    //     handleConference(browser, langs, month, year)
+      for (final month in ['october', 'april'])
+        handleConference(browser, langs, month, year)
   ]);
 
   // Gracefully close the browser's process
@@ -43,11 +43,9 @@ Future<void> handleConference(
     wait: Until.networkAlmostIdle, // Until.networkIdle,
   ); // https://www.churchofjesuschrist.org/media/music/songs/2024-10-press-forward-saints?...lang=eng
   // get all of the talks
-  final allSongs =
-      await myPage.$$('div.SongCard__StyledFlexDiv-sc-1a6cjzr-10.ArkGp > a');
+  final allSongs = await myPage.$$('details a');
   for (final talk in allSongs) {
     final href = await myPage.evaluate('element => element.href', args: [talk]);
-    // print(href);
     songs[href] = '';
   }
   for (final song in songs.keys) {
