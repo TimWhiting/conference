@@ -12,18 +12,65 @@ void main() async {
 
   final langs = ['eng'];
   // Iterate through the conferences and launch async tabs handling each then await the completion
-  await Future.wait([
-    // for (final year in 2019.rangeTo(2024))
-    //   for (final month in ['10', '04'])
-    //     handleConferenceTalks(browser, langs, month, year),
-    for (final year in 2019.rangeTo(2024))
-      for (final month in ['october', 'april'])
-        handleConference(browser, langs, month, year)
-  ]);
+  // await Future.wait([
+  //   // for (final year in 2019.rangeTo(2024))
+  //   //   for (final month in ['10', '04'])
+  //   //     handleConferenceTalks(browser, langs, month, year),
+  //   for (final year in 2019.rangeTo(2024))
+  //     for (final month in ['october', 'april'])
+  //       handleConference(browser, langs, month, year)
+  // ]);
+  await downloadSpeeches(browser);
 
   // Gracefully close the browser's process
   await Future.delayed(Duration(seconds: 1));
   await browser.close();
+}
+
+Future<void> downloadSpeeches(
+  Browser browser,
+) async {
+  var myPage = await browser.newPage();
+  await myPage.goto('https://speeches.byu.edu/speakers/',
+      wait: Until.domContentLoaded);
+  final speakers = await myPage.$$('h3 > a');
+  final speakerUrls = await Future.wait([
+    for (final speaker in speakers)
+      myPage.evaluate('element => element.href', args: [speaker])
+  ]);
+  print('Found ${speakerUrls.length} speakers');
+  for (final speakerUrl in speakerUrls) {
+    print('Visiting $speakerUrl');
+    await myPage.goto(speakerUrl, wait: Until.all([]));
+    await Future.delayed(Duration(milliseconds: 50));
+    print("finding speeches for $speakerUrl");
+    final speeches = await myPage.$$('.media-links__icon--download');
+    print('Found ${speeches.length} speeches for $speakerUrl');
+    for (final (i, speechDownloadButton) in speeches.indexed) {
+      await speechDownloadButton.click();
+      final speaker = await myPage.$$('.single-speaker__name');
+      final speakerName = await myPage
+          .evaluate('element => element.textContent', args: [speaker[0]]);
+      print('Processing speech $i for $speakerName');
+      final mp3Link = await myPage.$$('a[href*=".mp3"]');
+      final url = await Future.wait(mp3Link
+          .map((e) => myPage.evaluate('element => element.href', args: [e])));
+      final title = await myPage.$$('article h2 a');
+      final titleText = await myPage
+          .evaluate('element => element.textContent', args: [title[i]]);
+      if (mp3Link.isNotEmpty) {
+        final file = File('speeches/$speakerName/${titleText.trim()}.mp3');
+        if (!file.existsSync()) {
+          file.parent.createSync(recursive: true);
+          final download = await http.get(Uri.parse(url.first as String));
+          print('Downloading ${file.path} from $url');
+          await file.writeAsBytes(download.bodyBytes, flush: true);
+        } else {
+          print('Skipping ${file.path}: already downloaded');
+        }
+      }
+    }
+  }
 }
 
 Future<void> handleConference(
