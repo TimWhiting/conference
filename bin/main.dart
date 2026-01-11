@@ -116,18 +116,21 @@ Future<void> handleConferenceTalks(
   // Open a new tab
   var myPage = await browser.newPage();
 
-  final talks = <String>[];
-
   // Go to the overall conference page
   await myPage.goto(
     'https://www.churchofjesuschrist.org/study/general-conference/$year/$month',
   );
   // get all of the talks
-  for (final talk in await myPage
-      .$$('li[data-content-type="general-conference-talk"] > a')) {
-    final href = await myPage.evaluate('element => element.href', args: [talk]);
-    talks.add(href);
+  var allTalks =
+      await myPage.$$('li[data-content-type="general-conference-talk"] > a');
+  if (allTalks.isEmpty) {
+    allTalks = await myPage.$$('.listTile-WHLxI');
   }
+  final talks = (await Future.wait([
+    for (final talk in allTalks)
+      myPage.evaluate('element => element.href', args: [talk])
+  ]))
+      .cast<String>();
   print(talks);
 
   // Prepare the directories for each language
