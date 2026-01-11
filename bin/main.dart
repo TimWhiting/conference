@@ -13,12 +13,12 @@ void main() async {
   final langs = ['eng'];
   // Iterate through the conferences and launch async tabs handling each then await the completion
   await Future.wait([
-    // for (final year in 2020.rangeTo(2024))
-    //   for (final month in ['10', '04'])
-    //     handleConferenceTalks(browser, langs, month, year),
-    for (final year in 2010.rangeTo(2024))
-      for (final month in ['october', 'april'])
-        handleConference(browser, langs, month, year)
+    for (final year in 2019.rangeTo(2024))
+      for (final month in ['10', '04'])
+        handleConferenceTalks(browser, langs, month, year),
+    // for (final year in 2010.rangeTo(2024))
+    //   for (final month in ['october', 'april'])
+    //     handleConference(browser, langs, month, year)
   ]);
 
   // Gracefully close the browser's process
@@ -121,13 +121,14 @@ Future<void> handleConferenceTalks(
   // Go to the overall conference page
   await myPage.goto(
     'https://www.churchofjesuschrist.org/study/general-conference/$year/$month',
-    wait: Until.networkIdle,
   );
   // get all of the talks
-  for (final talk in await myPage.$$('a.listTile-WHLxI')) {
+  for (final talk in await myPage
+      .$$('li[data-content-type="general-conference-talk"] > a')) {
     final href = await myPage.evaluate('element => element.href', args: [talk]);
     talks.add(href);
   }
+  print(talks);
 
   // Prepare the directories for each language
   for (final lang in langs) {
@@ -135,21 +136,29 @@ Future<void> handleConferenceTalks(
   }
   // Go to each of the talks pages
   for (final talk in talks.where((t) => !t.toLowerCase().contains('session'))) {
-    await myPage.goto(talk, wait: Until.networkIdle);
+    await myPage.goto(talk, wait: Until.networkAlmostIdle);
+    print("Processing talk: $talk");
     // Find the buttons across the top
-    final buttons = await myPage.$$('div.baseHeaderMenuItem-sPKOf > button');
-    // Download is second button
-    final button = buttons[1];
-    // hit the download button
-    await button.tap();
+    final audioPlayer = await myPage.$$('button[aria-label="Audio Player"]');
+    // Tap the audio player button
+    await audioPlayer[0].tap();
+    final title = await myPage.$$('h1');
+    final titleText = await myPage
+        .evaluate('element => element.textContent', args: [title[0]]);
+
+    final more = await myPage.$$('button[aria-label="More"]');
     // find the download link
-    final download = await myPage.$$('div.yoesbz-2 a');
+    await more[0].tap();
+
+    final download = await myPage.$$('a[href*="download=true"]');
+    final List<dynamic> hrefs =
+        (await Future.wait(download.map((eh) => eh.evaluate('e => e.href'))));
+    print(hrefs);
     // get the href
-    final link = Uri.parse(
-      await myPage.evaluate('element => element.href', args: [download.first]),
-    );
+    final link =
+        Uri.parse(hrefs.firstWhere((href) => href.contains('download')));
     // Spawn a thread to download the talk
-    Isolate.spawn(downloadAndSave, [link, talk, langs]);
+    Isolate.spawn(downloadAndSave, [link, talk, langs, titleText]);
   }
   await myPage.close();
 }
@@ -171,22 +180,21 @@ void downloadAndSave(List params) async {
     // /study/general-conference/2017/10/turn-on-your-light
     talkIndex = talkIndex.isInt ? talkIndex : '';
 
-    final year = url.pathSegments.last.substring(0, 4);
-    final month = url.pathSegments.last.substring(5, 7);
-    final title = url.pathSegments.last.substring(13);
+    final year = talk.pathSegments.drop(2).first;
+    final month = talk.pathSegments.drop(3).first;
+    final title = params[3];
 
     /// Unfortunately not all conferences were in April and October (e.g. 2015)
     Directory('$lang/$year/$month').createSync(recursive: true);
 
-    if (!title.contains('sustaining-of-general') &&
-        !title.contains('sustaining-of-church') &&
-        !title.contains('auditing-department')) {
+    if (!title.contains('Church Auditing') &&
+        !title.contains('Sustaining of General Authorities, Area Seventies')) {
       final dir = Directory('$lang/$year/$month');
-      final file = File('${dir.path}/$talkIndex$title');
+      final file = File('${dir.path}/$title.mp3');
       // Don't redownload if the file already exists
       if (!file.existsSync()) {
         final download = await http.get(url);
-        print('Downloading ${dir.path}/$talkIndex$title from $url');
+        print('Downloading ${dir.path}/$title from $url');
         file.writeAsBytesSync(download.bodyBytes);
       }
     }
