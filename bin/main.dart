@@ -12,22 +12,22 @@ void main() async {
 
   final langs = ['eng'];
   // Iterate through the conferences and launch async tabs handling each then await the completion
-  // await Future.wait([
-  //   // for (final year in 2019.rangeTo(2024))
-  //   //   for (final month in ['10', '04'])
-  //   //     handleConferenceTalks(browser, langs, month, year),
-  //   for (final year in 2019.rangeTo(2024))
-  //     for (final month in ['october', 'april'])
-  //       handleConference(browser, langs, month, year)
-  // ]);
-  await downloadSpeeches(browser);
+  await Future.wait([
+    for (final year in 2019.rangeTo(2024))
+      for (final month in ['10', '04'])
+        handleConferenceTalks(browser, langs, month, year),
+    for (final year in 2019.rangeTo(2024))
+      for (final month in ['october', 'april'])
+        handleConferenceMusic(browser, langs, month, year)
+  ]);
+  await downloadBYUSpeeches(browser);
 
   // Gracefully close the browser's process
   await Future.delayed(Duration(seconds: 1));
   await browser.close();
 }
 
-Future<void> downloadSpeeches(
+Future<void> downloadBYUSpeeches(
   Browser browser,
 ) async {
   var myPage = await browser.newPage();
@@ -73,7 +73,7 @@ Future<void> downloadSpeeches(
   }
 }
 
-Future<void> handleConference(
+Future<void> handleConferenceMusic(
   Browser browser,
   List<String> langs,
   String month,
